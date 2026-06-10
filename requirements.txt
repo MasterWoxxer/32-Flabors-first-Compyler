@@ -1,0 +1,3 @@
+anthropic
+mistralai
+python-dotenv
