@@ -2,7 +2,7 @@
 ## Simplified Single-Model Version | Local Environment | Claude Code / Vite
 
 ---
-
+33
 ## Purpose
 
 This document contains everything needed to run the first 32 Flavors experiment locally. The experiment tests whether an open-weights orchestrator/compyler layer (Mistral or Llama via API) can produce meaningfully different human-model interaction than a direct commercial model conversation — specifically, whether it reduces completion pathology and increases the rate at which the human's own cognitive thread advances without being closed by the model.

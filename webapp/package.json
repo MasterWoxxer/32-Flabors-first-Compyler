@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
-    "anthropic": "^0.54.0",
-    "mistralai": "^1.9.11",
     "next": "14.2.12",
     "react": "18.3.1",
     "react-dom": "18.3.1"

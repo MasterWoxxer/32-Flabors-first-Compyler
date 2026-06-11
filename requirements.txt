@@ -1,3 +1,6 @@
 anthropic
 mistralai
 python-dotenv
+fastapi
+uvicorn[standard]
+pydantic
