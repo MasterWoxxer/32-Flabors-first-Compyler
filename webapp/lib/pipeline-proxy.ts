@@ -12,12 +12,14 @@ const PYTHON_BASE =
     ? `https://${process.env.VERCEL_URL}/api/py`
     : "http://localhost:8000");
 
-/** Returns a 401 response if the access code is missing/wrong, else null. */
-export function rejectUnlessAuthorized(req: NextRequest): NextResponse | null {
-  const required = process.env.ACCESS_CODE;
-  if (!required) return null; // no code configured (local dev) — open
-  if (req.headers.get("x-access-code") === required) return null;
-  return NextResponse.json({ detail: "invalid access code" }, { status: 401 });
+/**
+ * Access control removed (2026-06-11): the shared-access-code gate kept
+ * rejecting valid codes for unexplained Vercel env-var reasons and locked
+ * testers out entirely. The app is intentionally open until per-user logins
+ * (Supabase Auth) land. This function is kept so callers don't change.
+ */
+export function rejectUnlessAuthorized(_req: NextRequest): NextResponse | null {
+  return null;
 }
 
 /** Proxy the JSON body of `req` to the given Python service path. */
