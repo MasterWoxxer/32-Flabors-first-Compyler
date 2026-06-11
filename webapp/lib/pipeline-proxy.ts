@@ -6,10 +6,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+// Use the PUBLIC production domain for the internal hop — VERCEL_URL points
+// to the deployment's private URL, which sits behind Vercel's deployment
+// protection and answers 401 to server-to-server calls (the root cause of
+// the "invalid access code" popup saga of 2026-06-11).
 const PYTHON_BASE =
   process.env.PYTHON_SERVICE_URL ??
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/api/py`
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/py`
     : "http://localhost:8000");
 
 /**
