@@ -11,3 +11,4 @@ __pycache__/
 .env.local
 .env.*.local
 
+.deploy-secrets.local
