@@ -21,11 +21,21 @@ export function TogglesPanel({
   settings: ToggleSettings;
   onChange: (s: ToggleSettings) => void;
 }) {
-  // Load from localStorage on mount
+  // Load from localStorage on mount, merging with defaults so settings
+  // stored before newer fields (e.g. sessionInstructions) existed stay valid.
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) onChange(JSON.parse(stored) as ToggleSettings);
+      if (stored) {
+        const parsed = JSON.parse(stored) as Partial<ToggleSettings>;
+        onChange({
+          ...DEFAULT_SETTINGS,
+          ...parsed,
+          orchestrator: { ...DEFAULT_SETTINGS.orchestrator, ...parsed.orchestrator },
+          compiler: { ...DEFAULT_SETTINGS.compiler, ...parsed.compiler },
+          display: { ...DEFAULT_SETTINGS.display, ...parsed.display },
+        });
+      }
     } catch {
       /* ignore */
     }
@@ -88,6 +98,25 @@ export function TogglesPanel({
           checked={settings.orchestrator.strictMode}
           onChange={(v) => set(["orchestrator", "strictMode"], v)}
         />
+      </section>
+
+      {/* ── Session structure ───────────────────────────────────────── */}
+      <section>
+        <h3 className="text-xs text-gray-500 mb-2">Session Structure</h3>
+        <label className="text-xs text-gray-400 block mb-1">
+          Orchestrator instructions for this session
+        </label>
+        <textarea
+          value={settings.orchestrator.sessionInstructions}
+          onChange={(e) => set(["orchestrator", "sessionInstructions"], e.target.value)}
+          rows={4}
+          placeholder="e.g. Keep labor tasks small and concrete. Always ask for factual grounding before structure."
+          className="w-full resize-y text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-gray-300 placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        />
+        <p className="text-xs text-gray-600 leading-snug mt-1">
+          Shapes how the orchestrator frames and assigns labor. Cannot override
+          its scope constraints — it can focus work, not gate content.
+        </p>
       </section>
 
       {/* ── Compiler ────────────────────────────────────────────────── */}

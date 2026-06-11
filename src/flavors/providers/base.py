@@ -11,6 +11,9 @@ class ProviderResponse:
     text: str
     model: str
     provider: str
+    # Extended-thinking / reasoning trace, when the provider exposes one
+    # (currently the Claude adapter). None for providers without it.
+    thinking: str | None = None
 
 
 class ProviderAdapter(ABC):
@@ -33,6 +36,7 @@ class ProviderAdapter(ABC):
         system: str,
         messages: list[dict],
         max_tokens: int = 1024,
+        thinking: bool = False,
     ) -> ProviderResponse:
         """
         Call the provider and return a normalized ProviderResponse.
@@ -41,4 +45,8 @@ class ProviderAdapter(ABC):
             system:    System-prompt string.
             messages:  List of {"role": "user"|"assistant", "content": str} dicts.
             max_tokens: Upper bound on response tokens.
+            thinking:  Request a visible reasoning trace where the provider
+                supports it (currently Claude's adaptive thinking; Mistral's
+                Magistral models emit one regardless). Adapters without the
+                capability accept and ignore it.
         """

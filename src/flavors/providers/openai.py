@@ -25,6 +25,7 @@ class OpenAIAdapter(ProviderAdapter):
         system: str,
         messages: list[dict],
         max_tokens: int = 1024,
+        thinking: bool = False,  # not supported; ignored
     ) -> ProviderResponse:
         try:
             import openai  # noqa: PLC0415

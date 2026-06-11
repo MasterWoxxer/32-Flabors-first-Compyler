@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": { "maxDuration": 120 }
+    },
+    {
+      "src": "webapp/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    { "src": "/api/py/(.*)", "dest": "api/index.py" },
+    { "src": "/(.*)", "dest": "webapp/$1" }
+  ]
+}

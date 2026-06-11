@@ -30,9 +30,14 @@ class PipelineConfig:
 
     # Orchestrator behaviour
     strict_mode: bool = False
+    # Free-text session instructions from the human, shaping orchestrator
+    # behaviour for this session only. Always subordinate to the built-in
+    # scope constraints.
+    session_instructions: str = ""
 
-    # Compiler sensitivity
+    # Compiler behaviour
     compiler_sensitivity: str = "medium"  # low | medium | high
+    flag_hallucinations: bool = True
 
 
 def config_from_settings(settings: dict) -> PipelineConfig:
@@ -47,6 +52,8 @@ def config_from_settings(settings: dict) -> PipelineConfig:
     return PipelineConfig(
         executor_provider=settings.get("model") or os.getenv("EXECUTOR_PROVIDER", "claude"),
         strict_mode=bool(orch.get("strictMode", False)),
+        session_instructions=str(orch.get("sessionInstructions", "") or "").strip(),
         compiler_sensitivity=comp.get("sensitivity", "medium"),
+        flag_hallucinations=bool(comp.get("flagHallucinations", True)),
     )
 
