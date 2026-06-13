@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 class PipelineConfig:
     """Runtime configuration for one pipeline invocation."""
 
-    # Which provider handles each role (override via env vars or UI toggles)
     orchestrator_provider: str = field(
         default_factory=lambda: os.getenv("ORCHESTRATOR_PROVIDER", "mistral")
     )
@@ -23,30 +22,22 @@ class PipelineConfig:
         default_factory=lambda: os.getenv("COMPYLER_PROVIDER", "mistral")
     )
 
-    # Optional model overrides — empty string means "use the adapter's default"
     orchestrator_model: str = ""
     executor_model: str = ""
     compyler_model: str = ""
 
-    # Orchestrator behaviour
     strict_mode: bool = False
-    # Free-text session instructions from the human, shaping orchestrator
-    # behaviour for this session only. Always subordinate to the built-in
-    # scope constraints.
     session_instructions: str = ""
 
-    # Compiler behaviour
     compiler_sensitivity: str = "medium"  # low | medium | high
     flag_hallucinations: bool = True
 
+    response_length: str = "full"  # full | one_page | 400_words
+    language_smoothness: bool = False
 
-def config_from_settings(settings: dict) -> PipelineConfig:
-    """
-    Build a PipelineConfig from a toggle-settings dict sent by the UI.
 
-    The settings dict shape matches the ToggleSettings TypeScript type.
-    Unknown keys are silently ignored so the UI can evolve independently.
-    """
+def config_from_settings(settings: dict) -> "PipelineConfig":
+    """Build a PipelineConfig from a toggle-settings dict sent by the UI."""
     orch = settings.get("orchestrator", {})
     comp = settings.get("compiler", {})
     return PipelineConfig(
@@ -55,5 +46,6 @@ def config_from_settings(settings: dict) -> PipelineConfig:
         session_instructions=str(orch.get("sessionInstructions", "") or "").strip(),
         compiler_sensitivity=comp.get("sensitivity", "medium"),
         flag_hallucinations=bool(comp.get("flagHallucinations", True)),
+        response_length=settings.get("responseLength", "full"),
+        language_smoothness=bool(settings.get("languageSmoothness", False)),
     )
-

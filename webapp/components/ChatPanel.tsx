@@ -1,8 +1,17 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { ChatMessage } from "@/lib/types";
-import { CompilerFlag } from "./CompilerFlag";
+import type { ChatMessage, CompylerResult } from "@/lib/types";
+import { CompylerMessage, CompylerResultPanel } from "./CompilerFlag";
+
+function messageResult(msg: ChatMessage): CompylerResult | null {
+  if (!msg.pipeline) return null;
+  // voice_verdict covers the direct_response; labor_verdict covers labor_output.
+  // msg.content is set to direct_response ?? labor_output, so match accordingly.
+  return msg.pipeline.direct_response
+    ? (msg.pipeline.compiler.voice_verdict ?? msg.pipeline.compiler.labor_verdict)
+    : msg.pipeline.compiler.labor_verdict;
+}
 
 export function ChatPanel({
   messages,
@@ -43,8 +52,9 @@ export function ChatPanel({
       {/* Message list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => {
-          // In showOnlyFlags mode, hide assistant messages that have no pipeline data.
           if (showOnlyFlags && msg.role === "assistant" && !msg.pipeline) return null;
+
+          const compylerResult = msg.role === "assistant" ? messageResult(msg) : null;
 
           return (
             <div
@@ -52,27 +62,18 @@ export function ChatPanel({
               className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[70%] rounded-lg px-4 py-3 text-sm ${
+                className={`max-w-[70%] rounded-lg px-4 py-3 ${
                   msg.role === "user"
-                    ? "bg-indigo-700 text-white"
+                    ? "bg-indigo-700 text-white text-sm"
                     : "bg-gray-800 text-gray-100"
                 }`}
               >
-                <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-
-                {msg.role === "assistant" && msg.pipeline && (
-                  <div className="mt-3 space-y-1 border-t border-gray-700 pt-2">
-                    <CompilerFlag
-                      verdict={msg.pipeline.compiler.labor_verdict}
-                      label="Labor"
-                    />
-                    {msg.pipeline.compiler.voice_verdict && (
-                      <CompilerFlag
-                        verdict={msg.pipeline.compiler.voice_verdict}
-                        label="Voice"
-                      />
-                    )}
-                  </div>
+                {msg.role === "user" || !compylerResult ? (
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>
+                ) : showOnlyFlags ? (
+                  <CompylerResultPanel result={compylerResult} />
+                ) : (
+                  <CompylerMessage result={compylerResult} />
                 )}
               </div>
             </div>

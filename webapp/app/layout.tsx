@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "32 Flavors",
+  title: "32 Flavors: Show My Work Alpha",
   description: "Human-model cognition loop with orchestrator and compyler",
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({

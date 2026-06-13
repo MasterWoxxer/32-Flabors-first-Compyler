@@ -1,5 +1,5 @@
 import type { PipelineProgress, PipelineStage } from "@/lib/types";
-import { CompilerFlag } from "./CompilerFlag";
+import { CompylerResultPanel } from "./CompilerFlag";
 
 const STAGE_ORDER = ["orchestrating", "executing", "compyling"] as const;
 type RunStage = (typeof STAGE_ORDER)[number];
@@ -41,13 +41,13 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
   return (
     <div className="p-4 space-y-5">
       <h2 className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
-        Pipeline
+        AI Showing Its Work
       </h2>
 
       {!running && (
         <p className="text-xs text-gray-600 italic leading-relaxed">
           Send a message to watch the pipeline unfold here: the orchestrator&apos;s
-          task framing, the labor model&apos;s output, and the compyler&apos;s verdict.
+          task framing, the labor model&apos;s output, and the Compyler&apos;s verdict.
         </p>
       )}
 
@@ -73,7 +73,7 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             })}
           </section>
 
-          {/* Orchestrator's reasoning trace (Magistral models) */}
+          {/* Orchestrator thinking */}
           {progress.orchestrator_thinking && (
             <section className="space-y-1">
               <h3 className="text-xs text-gray-500">Orchestrator Thinking</h3>
@@ -83,7 +83,7 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Stage 1 — orchestrator instruction, shown as soon as it exists */}
+          {/* Orchestrator instruction */}
           {progress.instruction && (
             <section className="space-y-1">
               <h3 className="text-xs text-gray-500">Task Instruction</h3>
@@ -93,7 +93,7 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Labor model's extended-thinking trace — the process, not just output */}
+          {/* Labor thinking */}
           {progress.labor_thinking && (
             <section className="space-y-1">
               <h3 className="text-xs text-gray-500">Labor Thinking</h3>
@@ -103,7 +103,7 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Stage 2 — labor output (the compyler sees exactly this) */}
+          {/* Labor output */}
           {progress.labor_output && (
             <section className="space-y-1">
               <h3 className="text-xs text-gray-500">Labor Output</h3>
@@ -113,25 +113,15 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Stage 3 — compiler verdicts */}
+          {/* Compyler section verdicts */}
           {(progress.labor_verdict || progress.voice_verdict) && (
-            <section className="space-y-2">
-              <h3 className="text-xs text-gray-500">Compiler Flags</h3>
+            <section className="space-y-3">
+              <h3 className="text-xs text-gray-500">Compyler Flags</h3>
               {progress.labor_verdict && (
-                <CompilerFlag verdict={progress.labor_verdict} label="Labor" />
-              )}
-              {progress.labor_verdict?.thinking && (
-                <p className="text-xs text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
-                  {progress.labor_verdict.thinking}
-                </p>
+                <CompylerResultPanel result={progress.labor_verdict} label="Labor" />
               )}
               {progress.voice_verdict && (
-                <CompilerFlag verdict={progress.voice_verdict} label="Voice" />
-              )}
-              {progress.voice_verdict?.thinking && (
-                <p className="text-xs text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
-                  {progress.voice_verdict.thinking}
-                </p>
+                <CompylerResultPanel result={progress.voice_verdict} label="Voice" />
               )}
             </section>
           )}

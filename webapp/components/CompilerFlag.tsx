@@ -1,33 +1,80 @@
-import type { CompilerVerdict } from "@/lib/types";
+import type { CompylerResult, CompylerSection, SectionDecision } from "@/lib/types";
 
-const VARIANT: Record<string, string> = {
-  PASS: "bg-green-900/60 text-green-300 border-green-700",
-  FAIL: "bg-red-900/60 text-red-300 border-red-700",
-  MCQ: "bg-yellow-900/60 text-yellow-300 border-yellow-700",
-  CURRENCY_FAIL: "bg-orange-900/60 text-orange-300 border-orange-700",
-  SCOPE_FAIL: "bg-purple-900/60 text-purple-300 border-purple-700",
-  VOICE_FAIL: "bg-pink-900/60 text-pink-300 border-pink-700",
-  CANDIDATE_FAIL: "bg-blue-900/60 text-blue-300 border-blue-700",
-  UNKNOWN: "bg-gray-800 text-gray-400 border-gray-600",
+const DECISION_STYLES: Record<SectionDecision, string> = {
+  PASS: "bg-green-900/40 text-green-300 border-green-700",
+  CHECK: "bg-amber-900/40 text-amber-300 border-amber-700",
+  FAIL: "bg-red-900/40 text-red-300 border-red-700",
 };
 
-export function CompilerFlag({
-  verdict,
+/** Single section badge — used in the sidebar section list. */
+export function SectionBadge({ section }: { section: CompylerSection }) {
+  const cls = DECISION_STYLES[section.decision] ?? DECISION_STYLES.CHECK;
+  return (
+    <div className={`rounded border px-2 py-1 text-xs font-mono ${cls}`}>
+      <span className="font-bold">{section.decision}</span>
+      {section.note && (
+        <span className="opacity-70 ml-1">— {section.note}</span>
+      )}
+      <p className="mt-0.5 text-xs opacity-60 leading-snug line-clamp-2 font-sans">
+        {section.text}
+      </p>
+    </div>
+  );
+}
+
+/** Full section list — used in the sidebar to show all compyler decisions. */
+export function CompylerResultPanel({
+  result,
   label,
 }: {
-  verdict: CompilerVerdict;
+  result: CompylerResult;
   label?: string;
 }) {
-  const cls = VARIANT[verdict.verdict] ?? VARIANT.UNKNOWN;
   return (
-    <div className={`rounded border px-3 py-2 text-xs font-mono ${cls}`}>
-      <div className="font-bold">
-        {label && <span className="opacity-50 mr-1">{label}:</span>}
-        {verdict.verdict}
-      </div>
-      {verdict.verdict !== "PASS" && verdict.body && (
-        <p className="mt-0.5 opacity-80 break-words leading-snug">{verdict.body}</p>
-      )}
+    <div className="space-y-1">
+      {label && <p className="text-xs text-gray-600 font-medium">{label}</p>}
+      {result.sections.map((s, i) => (
+        <SectionBadge key={i} section={s} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Reconstructed message body for the chat panel.
+ * PASS → verbatim. CHECK → verbatim with amber left border.
+ * FAIL → blocked placeholder (text never shown to user).
+ */
+export function CompylerMessage({ result }: { result: CompylerResult }) {
+  return (
+    <div className="space-y-2">
+      {result.sections.map((s, i) => {
+        if (s.decision === "FAIL") {
+          return (
+            <div
+              key={i}
+              className="rounded border border-red-700 bg-red-900/30 px-3 py-1.5 text-xs text-red-300 font-mono"
+            >
+              [Compyler blocked{s.note ? `: ${s.note}` : ""}]
+            </div>
+          );
+        }
+        return (
+          <div
+            key={i}
+            className={
+              s.decision === "CHECK"
+                ? "border-l-2 border-amber-500 pl-3"
+                : undefined
+            }
+          >
+            <p className="whitespace-pre-wrap leading-relaxed text-sm">{s.text}</p>
+            {s.decision === "CHECK" && s.note && (
+              <span className="text-xs text-amber-500 mt-0.5 block">{s.note}</span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

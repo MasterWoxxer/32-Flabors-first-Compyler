@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { AccessGate } from "@/components/AccessGate";
 import { ChatPanel } from "@/components/ChatPanel";
 import { OrchestratorPanel } from "@/components/OrchestratorPanel";
@@ -17,10 +17,13 @@ import {
 import { DEFAULT_SETTINGS, IDLE_PROGRESS } from "@/lib/types";
 import type {
   ChatMessage,
+  HistoryTurn,
   PipelineProgress,
   PipelineResult,
   ToggleSettings,
 } from "@/lib/types";
+
+const STORAGE_KEY = "32flavors-settings";
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,10 +32,26 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
-  // Survives re-renders without triggering them: the message to retry after
-  // the access gate, and the Supabase conversation id for this thread.
   const pendingRef = useRef<string | null>(null);
   const conversationRef = useRef<string | null>(null);
+  const historyRef = useRef<HistoryTurn[]>([]);
+
+  // Load prior conversation turns from Supabase once on session start.
+  useEffect(() => {
+    const sessionId = getSessionId();
+    let n = DEFAULT_SETTINGS.historyTurns;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) n = JSON.parse(stored)?.historyTurns ?? n;
+    } catch { /* ignore */ }
+
+    fetch(`/api/logs?sessionId=${encodeURIComponent(sessionId)}&n=${n}`)
+      .then((r) => r.json())
+      .then((data: { turns?: HistoryTurn[] }) => {
+        if (data.turns?.length) historyRef.current = data.turns;
+      })
+      .catch(() => { /* history is best-effort */ });
+  }, []);
 
   const runStages = useCallback(
     async (text: string) => {
@@ -45,6 +64,7 @@ export default function Home() {
         const { instruction, orchestrator_thinking } = await orchestrate(
           text,
           settings,
+          historyRef.current,
         );
 
         // Stage 2 — labor model executes.
@@ -55,7 +75,7 @@ export default function Home() {
           settings,
         );
 
-        // Stage 3 — compyler gates the output (plus voice check if present).
+        // Stage 3 — compyler gates the output.
         setProgress({
           stage: "compyling",
           instruction,
@@ -97,14 +117,12 @@ export default function Home() {
         const assistantMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: "assistant",
-          // Prefer the direct response if present; fall back to labor output.
           content: result.direct_response ?? result.labor_output,
           pipeline: result,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, assistantMsg]);
 
-        // Fire-and-forget research logging.
         logRun({
           sessionId: getSessionId(),
           conversationId: conversationRef.current,
@@ -153,35 +171,52 @@ export default function Home() {
       setGateOpen(false);
       const pending = pendingRef.current;
       pendingRef.current = null;
-      if (pending) void runStages(pending); // retry the interrupted send
+      if (pending) void runStages(pending);
     },
     [runStages],
   );
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col h-screen overflow-hidden">
       {gateOpen && <AccessGate onSubmit={handleAccessCode} />}
 
-      {/* Left panel — live pipeline trace + compiler flags */}
-      <aside className="w-72 shrink-0 border-r border-gray-800 overflow-y-auto">
-        <OrchestratorPanel progress={progress} />
-      </aside>
+      {/* Header bar */}
+      <header className="shrink-0 border-b border-gray-800 px-6 py-3">
+        <h1 className="text-base font-semibold text-gray-100 leading-tight">
+          32 Flavors: Show My Work Alpha
+        </h1>
+        <p className="text-xs text-gray-500 leading-snug mt-1 max-w-4xl">
+          This interface allows you to talk to an LLM that is guided by a process designed
+          to limit hallucinations, drift, lying, and treading into the human user&apos;s lane.
+          You can transparently see in the left sidebar the thinking of the models as they
+          decide how to respond to you. On the right is a control panel where you can change
+          the settings for the orchestrator, the model, and the Compyler&nbsp;(TM).
+        </p>
+      </header>
 
-      {/* Center panel — chat */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <ChatPanel
-          messages={messages}
-          onSend={handleSend}
-          loading={loading}
-          error={error}
-          showOnlyFlags={settings.display.showOnlyCompilerFlags}
-        />
-      </main>
+      {/* Three-panel layout */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left panel — live pipeline trace */}
+        <aside className="w-[27rem] shrink-0 border-r border-gray-800 overflow-y-auto">
+          <OrchestratorPanel progress={progress} />
+        </aside>
 
-      {/* Right panel — toggles */}
-      <aside className="w-72 shrink-0 border-l border-gray-800 overflow-y-auto">
-        <TogglesPanel settings={settings} onChange={setSettings} />
-      </aside>
+        {/* Center panel — chat */}
+        <main className="flex-1 flex flex-col min-w-0">
+          <ChatPanel
+            messages={messages}
+            onSend={handleSend}
+            loading={loading}
+            error={error}
+            showOnlyFlags={settings.display.showOnlyCompilerFlags}
+          />
+        </main>
+
+        {/* Right panel — control panel */}
+        <aside className="w-72 shrink-0 border-l border-gray-800 overflow-y-auto">
+          <TogglesPanel settings={settings} onChange={setSettings} />
+        </aside>
+      </div>
     </div>
   );
 }

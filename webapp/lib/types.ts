@@ -3,38 +3,32 @@
  * These match the Python service's run_pipeline() return shape 1-to-1.
  */
 
-export type VerdictType =
-  | "PASS"
-  | "FAIL"
-  | "MCQ"
-  | "CURRENCY_FAIL"
-  | "SCOPE_FAIL"
-  | "VOICE_FAIL"
-  | "CANDIDATE_FAIL"
-  | "UNKNOWN";
+// ── Compyler section result ──────────────────────────────────────────────────
 
-export interface CompilerVerdict {
-  verdict: VerdictType;
-  /** Explanation text (empty on PASS). */
-  body: string;
-  /** Full raw text returned by the compyler. */
+export type SectionDecision = "PASS" | "CHECK" | "FAIL";
+
+export interface CompylerSection {
+  text: string;
+  decision: SectionDecision;
+  note: string;
+}
+
+export interface CompylerResult {
+  sections: CompylerSection[];
+  /** The raw output text that was segmented. */
   raw: string;
-  /** Reasoning trace, when the compyler runs on a reasoning model. */
-  thinking?: string | null;
 }
 
 /** Full structured output from one pipeline run. */
 export interface PipelineResult {
   orchestrator_instruction: string;
-  /** Reasoning trace from the orchestrator (Magistral models); null otherwise. */
   orchestrator_thinking: string | null;
   labor_output: string;
-  /** Extended-thinking trace from the labor model (Claude); null otherwise. */
   labor_thinking: string | null;
   direct_response: string | null;
   compiler: {
-    labor_verdict: CompilerVerdict;
-    voice_verdict: CompilerVerdict | null;
+    labor_verdict: CompylerResult;
+    voice_verdict: CompylerResult | null;
   };
 }
 
@@ -42,12 +36,12 @@ export interface PipelineResult {
 
 export type ModelProvider = "claude" | "openai" | "gemini" | "xai";
 
+export type ResponseLength = "full" | "one_page" | "400_words";
+
 export interface ToggleSettings {
   model: ModelProvider;
   orchestrator: {
     strictMode: boolean;
-    /** Free-text instructions shaping orchestrator behaviour for this session.
-     *  Always subordinate to the built-in scope constraints. */
     sessionInstructions: string;
   };
   compiler: {
@@ -57,6 +51,9 @@ export interface ToggleSettings {
   display: {
     showOnlyCompilerFlags: boolean;
   };
+  responseLength: ResponseLength;
+  languageSmoothness: boolean;
+  historyTurns: number;
 }
 
 export const DEFAULT_SETTINGS: ToggleSettings = {
@@ -64,6 +61,9 @@ export const DEFAULT_SETTINGS: ToggleSettings = {
   orchestrator: { strictMode: false, sessionInstructions: "" },
   compiler: { flagHallucinations: true, sensitivity: "medium" },
   display: { showOnlyCompilerFlags: false },
+  responseLength: "full",
+  languageSmoothness: false,
+  historyTurns: 10,
 };
 
 // ── Staged pipeline progress ─────────────────────────────────────────────────
@@ -76,7 +76,6 @@ export type PipelineStage =
   | "done"
   | "error";
 
-/** Live state of the run in flight — drives the left panel's unfolding view. */
 export interface PipelineProgress {
   stage: PipelineStage;
   instruction?: string;
@@ -84,8 +83,8 @@ export interface PipelineProgress {
   labor_output?: string;
   labor_thinking?: string | null;
   direct_response?: string | null;
-  labor_verdict?: CompilerVerdict;
-  voice_verdict?: CompilerVerdict | null;
+  labor_verdict?: CompylerResult;
+  voice_verdict?: CompylerResult | null;
   error?: string;
 }
 
@@ -97,7 +96,11 @@ export interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  /** Only present on assistant messages. */
   pipeline?: PipelineResult;
   timestamp: number;
+}
+
+export interface HistoryTurn {
+  role: "user" | "assistant";
+  content: string;
 }

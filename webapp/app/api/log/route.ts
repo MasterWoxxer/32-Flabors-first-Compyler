@@ -72,28 +72,29 @@ export async function POST(req: NextRequest) {
       .single();
     if (asstErr) throw asstErr;
 
+    // Log one row per compyler section (labor + voice).
     const flags = [
-      {
+      ...result.compiler.labor_verdict.sections.map((s) => ({
         message_id: assistantRow.id,
-        flag_type: result.compiler.labor_verdict.verdict,
+        flag_type: s.decision,
         check_kind: "labor",
-        detail: result.compiler.labor_verdict.body || null,
-      },
+        detail: s.note ? `${s.note} | ${s.text.slice(0, 200)}` : s.text.slice(0, 200),
+      })),
       ...(result.compiler.voice_verdict
-        ? [
-            {
-              message_id: assistantRow.id,
-              flag_type: result.compiler.voice_verdict.verdict,
-              check_kind: "voice",
-              detail: result.compiler.voice_verdict.body || null,
-            },
-          ]
+        ? result.compiler.voice_verdict.sections.map((s) => ({
+            message_id: assistantRow.id,
+            flag_type: s.decision,
+            check_kind: "voice",
+            detail: s.note ? `${s.note} | ${s.text.slice(0, 200)}` : s.text.slice(0, 200),
+          }))
         : []),
     ];
-    const { error: flagErr } = await supabaseServer
-      .from("compiler_flags")
-      .insert(flags);
-    if (flagErr) throw flagErr;
+    if (flags.length > 0) {
+      const { error: flagErr } = await supabaseServer
+        .from("compiler_flags")
+        .insert(flags);
+      if (flagErr) throw flagErr;
+    }
 
     const { error: toggleErr } = await supabaseServer
       .from("toggle_settings")

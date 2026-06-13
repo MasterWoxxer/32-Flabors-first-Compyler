@@ -64,6 +64,7 @@ async def _require_internal_secret(request: Request, call_next):
 class RunRequest(BaseModel):
     message: str
     settings: dict = {}
+    history: list[dict] = []
 
 
 class ExecuteRequest(BaseModel):
@@ -95,7 +96,7 @@ def run(req: RunRequest):
     _require_message(req.message)
     config: PipelineConfig = config_from_settings(req.settings)
     try:
-        result = run_pipeline(req.message, config)
+        result = run_pipeline(req.message, config, history=req.history or None)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return result
@@ -109,7 +110,9 @@ def orchestrate_stage(req: RunRequest):
     _require_message(req.message)
     config = config_from_settings(req.settings)
     try:
-        instruction, orchestrator_thinking = orchestrate(req.message, config)
+        instruction, orchestrator_thinking = orchestrate(
+            req.message, config, history=req.history or None
+        )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return {"instruction": instruction, "orchestrator_thinking": orchestrator_thinking}
