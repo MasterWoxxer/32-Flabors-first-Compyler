@@ -1,5 +1,5 @@
-import type { PipelineProgress, PipelineStage } from "@/lib/types";
-import { CompylerResultPanel } from "./CompilerFlag";
+import type { CompylerSection, PipelineProgress, PipelineStage } from "@/lib/types";
+import { CheckReviewCard, FailFlag, PassSummary } from "./CompilerFlag";
 
 const STAGE_ORDER = ["orchestrating", "executing", "compyling"] as const;
 type RunStage = (typeof STAGE_ORDER)[number];
@@ -35,7 +35,22 @@ function StatusDot({ status }: { status: StageStatus }) {
   );
 }
 
-export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) {
+interface PendingCheck {
+  messageId: string;
+  section: CompylerSection;
+}
+
+export function OrchestratorPanel({
+  progress,
+  pendingChecks,
+  onPass,
+  onDismiss,
+}: {
+  progress: PipelineProgress;
+  pendingChecks: PendingCheck[];
+  onPass: (messageId: string, text: string) => void;
+  onDismiss: (messageId: string, text: string) => void;
+}) {
   const running = progress.stage !== "idle";
 
   return (
@@ -44,11 +59,29 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
         AI Showing Its Work
       </h2>
 
-      {!running && (
+      {!running && !pendingChecks.length && (
         <p className="text-xs text-gray-600 italic leading-relaxed">
           Send a message to watch the pipeline unfold here: the orchestrator&apos;s
           task framing, the labor model&apos;s output, and the Compyler&apos;s verdict.
         </p>
+      )}
+
+      {/* Pending CHECK review queue — visible whenever checks exist */}
+      {pendingChecks.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-xs text-amber-400 font-medium uppercase tracking-wide">
+            Flagged for Review
+          </h3>
+          {pendingChecks.map((c, i) => (
+            <CheckReviewCard
+              key={i}
+              section={c.section}
+              messageId={c.messageId}
+              onPass={onPass}
+              onDismiss={onDismiss}
+            />
+          ))}
+        </section>
       )}
 
       {running && (
@@ -83,7 +116,7 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Orchestrator instruction */}
+          {/* Task instruction */}
           {progress.instruction && (
             <section className="space-y-1">
               <h3 className="text-xs text-gray-500">Task Instruction</h3>
@@ -113,15 +146,25 @@ export function OrchestratorPanel({ progress }: { progress: PipelineProgress }) 
             </section>
           )}
 
-          {/* Compyler section verdicts */}
+          {/* Compyler results — pass summary + fail blocks only (CHECKs go to review queue above) */}
           {(progress.labor_verdict || progress.voice_verdict) && (
-            <section className="space-y-3">
-              <h3 className="text-xs text-gray-500">Compyler Flags</h3>
+            <section className="space-y-2">
+              <h3 className="text-xs text-gray-500">Compyler</h3>
               {progress.labor_verdict && (
-                <CompylerResultPanel result={progress.labor_verdict} label="Labor" />
+                <>
+                  <PassSummary result={progress.labor_verdict} />
+                  {progress.labor_verdict.sections
+                    .filter((s) => s.decision === "FAIL")
+                    .map((s, i) => <FailFlag key={i} section={s} />)}
+                </>
               )}
               {progress.voice_verdict && (
-                <CompylerResultPanel result={progress.voice_verdict} label="Voice" />
+                <>
+                  <PassSummary result={progress.voice_verdict} />
+                  {progress.voice_verdict.sections
+                    .filter((s) => s.decision === "FAIL")
+                    .map((s, i) => <FailFlag key={i} section={s} />)}
+                </>
               )}
             </section>
           )}

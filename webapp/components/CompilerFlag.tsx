@@ -1,80 +1,118 @@
-import type { CompylerResult, CompylerSection, SectionDecision } from "@/lib/types";
+import type { CompylerResult, CompylerSection } from "@/lib/types";
 
-const DECISION_STYLES: Record<SectionDecision, string> = {
-  PASS: "bg-green-900/40 text-green-300 border-green-700",
-  CHECK: "bg-amber-900/40 text-amber-300 border-amber-700",
-  FAIL: "bg-red-900/40 text-red-300 border-red-700",
-};
-
-/** Single section badge — used in the sidebar section list. */
-export function SectionBadge({ section }: { section: CompylerSection }) {
-  const cls = DECISION_STYLES[section.decision] ?? DECISION_STYLES.CHECK;
-  return (
-    <div className={`rounded border px-2 py-1 text-xs font-mono ${cls}`}>
-      <span className="font-bold">{section.decision}</span>
-      {section.note && (
-        <span className="opacity-70 ml-1">— {section.note}</span>
-      )}
-      <p className="mt-0.5 text-xs opacity-60 leading-snug line-clamp-2 font-sans">
-        {section.text}
-      </p>
-    </div>
-  );
-}
-
-/** Full section list — used in the sidebar to show all compyler decisions. */
-export function CompylerResultPanel({
+/**
+ * Renders the assistant message in chat.
+ * PASS sections: verbatim, clean.
+ * FAIL sections: blocked inline with a flag.
+ * CHECK sections: not shown here — they live in the sidebar review queue.
+ * Approved sections (user passed from review): shown with a subtle indigo border.
+ */
+export function CompylerMessage({
   result,
-  label,
+  approvedTexts = [],
+  hasPendingChecks = false,
 }: {
   result: CompylerResult;
-  label?: string;
+  approvedTexts?: string[];
+  hasPendingChecks?: boolean;
 }) {
+  const passSections = result.sections.filter((s) => s.decision === "PASS");
+  const failSections = result.sections.filter((s) => s.decision === "FAIL");
+  const checkCount = result.sections.filter((s) => s.decision === "CHECK").length;
+
   return (
-    <div className="space-y-1">
-      {label && <p className="text-xs text-gray-600 font-medium">{label}</p>}
-      {result.sections.map((s, i) => (
-        <SectionBadge key={i} section={s} />
+    <div className="space-y-2">
+      {checkCount > 0 && hasPendingChecks && (
+        <p className="text-xs text-gray-500 italic">
+          {checkCount} section{checkCount > 1 ? "s" : ""} held for review — see left sidebar
+        </p>
+      )}
+
+      {passSections.map((s, i) => (
+        <p key={i} className="whitespace-pre-wrap leading-relaxed text-sm">
+          {s.text}
+        </p>
+      ))}
+
+      {failSections.map((s, i) => (
+        <div
+          key={i}
+          className="rounded border border-red-700 bg-red-900/30 px-3 py-1.5 text-xs text-red-300 font-mono"
+        >
+          [Compyler blocked{s.note ? `: ${s.note}` : ""}]
+        </div>
+      ))}
+
+      {approvedTexts.map((text, i) => (
+        <div key={i} className="border-l-2 border-indigo-500 pl-3">
+          <p className="whitespace-pre-wrap leading-relaxed text-sm text-gray-100">{text}</p>
+          <span className="text-xs text-indigo-400 mt-0.5 block">passed from review</span>
+        </div>
       ))}
     </div>
   );
 }
 
 /**
- * Reconstructed message body for the chat panel.
- * PASS → verbatim. CHECK → verbatim with amber left border.
- * FAIL → blocked placeholder (text never shown to user).
+ * Single CHECK section card for the sidebar review queue.
+ * Shows full text — no truncation. Pass or Dismiss.
  */
-export function CompylerMessage({ result }: { result: CompylerResult }) {
+export function CheckReviewCard({
+  section,
+  messageId,
+  onPass,
+  onDismiss,
+}: {
+  section: CompylerSection;
+  messageId: string;
+  onPass: (messageId: string, text: string) => void;
+  onDismiss: (messageId: string, text: string) => void;
+}) {
   return (
-    <div className="space-y-2">
-      {result.sections.map((s, i) => {
-        if (s.decision === "FAIL") {
-          return (
-            <div
-              key={i}
-              className="rounded border border-red-700 bg-red-900/30 px-3 py-1.5 text-xs text-red-300 font-mono"
-            >
-              [Compyler blocked{s.note ? `: ${s.note}` : ""}]
-            </div>
-          );
-        }
-        return (
-          <div
-            key={i}
-            className={
-              s.decision === "CHECK"
-                ? "border-l-2 border-amber-500 pl-3"
-                : undefined
-            }
-          >
-            <p className="whitespace-pre-wrap leading-relaxed text-sm">{s.text}</p>
-            {s.decision === "CHECK" && s.note && (
-              <span className="text-xs text-amber-500 mt-0.5 block">{s.note}</span>
-            )}
-          </div>
-        );
-      })}
+    <div className="rounded border border-amber-700 bg-amber-900/20 p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-mono font-bold text-amber-300">CHECK</span>
+        {section.note && (
+          <span className="text-xs text-amber-400 opacity-70">— {section.note}</span>
+        )}
+      </div>
+      <p className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+        {section.text}
+      </p>
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => onPass(messageId, section.text)}
+          className="text-xs px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white transition-colors"
+        >
+          Pass
+        </button>
+        <button
+          onClick={() => onDismiss(messageId, section.text)}
+          className="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
+  );
+}
+
+/** Brief FAIL indicator for the sidebar — just label + note, no full text. */
+export function FailFlag({ section }: { section: CompylerSection }) {
+  return (
+    <div className="rounded border border-red-800 bg-red-900/20 px-2 py-1 text-xs text-red-400 font-mono">
+      FAIL{section.note ? ` — ${section.note}` : ""}
+    </div>
+  );
+}
+
+/** Summary line for PASS sections in the sidebar. */
+export function PassSummary({ result }: { result: CompylerResult }) {
+  const count = result.sections.filter((s) => s.decision === "PASS").length;
+  if (!count) return null;
+  return (
+    <p className="text-xs text-green-600">
+      ✓ {count} section{count > 1 ? "s" : ""} passed
+    </p>
   );
 }

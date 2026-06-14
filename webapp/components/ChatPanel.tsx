@@ -2,12 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import type { ChatMessage, CompylerResult } from "@/lib/types";
-import { CompylerMessage, CompylerResultPanel } from "./CompilerFlag";
+import { CompylerMessage } from "./CompilerFlag";
 
 function messageResult(msg: ChatMessage): CompylerResult | null {
   if (!msg.pipeline) return null;
-  // voice_verdict covers the direct_response; labor_verdict covers labor_output.
-  // msg.content is set to direct_response ?? labor_output, so match accordingly.
   return msg.pipeline.direct_response
     ? (msg.pipeline.compiler.voice_verdict ?? msg.pipeline.compiler.labor_verdict)
     : msg.pipeline.compiler.labor_verdict;
@@ -19,12 +17,16 @@ export function ChatPanel({
   loading,
   error,
   showOnlyFlags,
+  approvedSections,
+  pendingCheckIds,
 }: {
   messages: ChatMessage[];
   onSend: (text: string) => void;
   loading: boolean;
   error: string | null;
   showOnlyFlags: boolean;
+  approvedSections: Record<string, string[]>;
+  pendingCheckIds: Set<string>;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -49,12 +51,13 @@ export function ChatPanel({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Message list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((msg) => {
           if (showOnlyFlags && msg.role === "assistant" && !msg.pipeline) return null;
 
           const compylerResult = msg.role === "assistant" ? messageResult(msg) : null;
+          const approved = approvedSections[msg.id] ?? [];
+          const hasPending = pendingCheckIds.has(msg.id);
 
           return (
             <div
@@ -70,10 +73,12 @@ export function ChatPanel({
               >
                 {msg.role === "user" || !compylerResult ? (
                   <p className="whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>
-                ) : showOnlyFlags ? (
-                  <CompylerResultPanel result={compylerResult} />
                 ) : (
-                  <CompylerMessage result={compylerResult} />
+                  <CompylerMessage
+                    result={compylerResult}
+                    approvedTexts={approved}
+                    hasPendingChecks={hasPending}
+                  />
                 )}
               </div>
             </div>
@@ -95,7 +100,6 @@ export function ChatPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
       <div className="border-t border-gray-800 p-4">
         <div className="flex gap-2">
           <textarea
