@@ -84,10 +84,12 @@ export default function Home() {
 
       try {
         setProgress({ stage: "orchestrating" });
+        const sessionHistory = historyRef.current;
+        historyRef.current = []; // clear so old history only touches the first call
         const { instruction, orchestrator_thinking } = await orchestrate(
           text,
           settings,
-          historyRef.current,
+          sessionHistory,
         );
 
         setProgress({ stage: "executing", instruction, orchestrator_thinking });

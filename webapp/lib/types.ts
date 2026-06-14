@@ -63,7 +63,7 @@ export const DEFAULT_SETTINGS: ToggleSettings = {
   display: { showOnlyCompilerFlags: false },
   responseLength: "full",
   languageSmoothness: false,
-  historyTurns: 10,
+  historyTurns: 0,
 };
 
 // ── Staged pipeline progress ─────────────────────────────────────────────────
