@@ -6,12 +6,34 @@ requires only a config change — no pipeline logic changes.
 
 import json as _json
 import re as _re
+from datetime import date as _date
 
 from .config import PipelineConfig
 from .prompts import COMPYLER_SYSTEM, EXECUTOR_SYSTEM, ORCHESTRATOR_SYSTEM
 from .providers import ProviderResponse, get_adapter
 
 DIRECT_RESPONSE_LABEL = "[DIRECT RESPONSE TO HUMAN]"
+
+# Returned by the labor stage when a currency request could not be grounded
+# (web search timed out or never ran). Honest disclosure beats confident
+# fake-sourced "intelligence" — see the honesty gate in execute().
+_UNVERIFIED_DISCLOSURE = (
+    "I could not verify current information within the available time budget, so I "
+    "cannot give a grounded answer to this time-sensitive question. The recent events, "
+    "dated statements, and named sources it depends on are exactly what I was unable to "
+    "confirm — and I will not invent them.\n\n"
+    f"{DIRECT_RESPONSE_LABEL}\n"
+    "I want to be straight with you: I started checking live sources but ran out of time "
+    "to confirm what's actually been announced. Rather than hand you confident-sounding "
+    "details I can't stand behind, I'm telling you I couldn't verify them. For something "
+    "this consequential and fast-moving, go to the primary sources directly — the official "
+    "statements and accounts you named — or ask me to try again."
+)
+
+
+def _today_clause() -> str:
+    """Current date, injected into prompts so models stop assuming a stale year."""
+    return f"Today's date is {_date.today().isoformat()}. "
 
 STRICT_MODE_CLAUSE = (
     "\n\nStrict mode is active: before issuing your instruction, enumerate every "
@@ -162,7 +184,7 @@ def orchestrate(
     prior = list(history) if history else []
     messages = prior + [{"role": "user", "content": human_input}]
 
-    system = build_orchestrator_system(config)
+    system = _today_clause() + "\n\n" + build_orchestrator_system(config)
     if _is_simple_input(human_input):
         system = (
             "[SHORT_ANSWER_DETECTED] The human's input is simple and direct. "
@@ -187,26 +209,40 @@ def execute(
         f"regardless of how the orchestrator has scoped the task):\n{human_input}\n\n"
         f"Orchestrator's task instruction:\n{orchestrator_instruction}"
     )
-    system = EXECUTOR_SYSTEM
     if wants_currency_check(human_input):
-        system += (
+        # Currency path: actually ground in live search. Thinking is OFF here —
+        # adaptive thinking + dynamic-filtering search compounds to ~3min, which
+        # the free-tier 60s function cap can't survive. The adapter caps searches
+        # and the wall-clock, and reports whether it grounded.
+        system = _today_clause() + EXECUTOR_SYSTEM + (
             " The human has explicitly asked you to check current information or sources. "
-            "You MUST use the web_search tool, ground your answer in the retrieved results, "
-            "and cite them. Do NOT decline or fall back on a knowledge-cutoff disclaimer — "
-            "live retrieval is available to you. If the human stated a source preference "
-            "(sources to prefer or distrust), honor it as far as the available results allow."
+            "You MUST use the web_search tool and ground every current claim, source, date, "
+            "and quote in the retrieved results, citing them. If you cannot verify something, "
+            "say so explicitly — NEVER present unverified or remembered details as current "
+            "fact, and NEVER invent sources, dates, or quotes. Honor any stated source "
+            "preference as far as the results allow. Output only the final framework — do "
+            "not narrate your search process."
         )
-    else:
-        system += (
-            " Use the web_search tool to retrieve current information when the task "
-            "depends on facts that may have changed since your training cutoff."
+        resp: ProviderResponse = adapter.generate(
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2500,
+            thinking=False,
+            web_search=True,
         )
-    resp: ProviderResponse = adapter.generate(
+        # Honesty gate: if it timed out or never actually searched, disclose
+        # rather than ship confident ungrounded claims.
+        if resp.timed_out or not resp.searched:
+            return _UNVERIFIED_DISCLOSURE, None
+        return resp.text, resp.thinking
+
+    # Non-currency path: unchanged behavior (thinking on, no search).
+    system = _today_clause() + EXECUTOR_SYSTEM
+    resp = adapter.generate(
         system=system,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1024,
         thinking=True,
-        web_search=True,
     )
     return resp.text, resp.thinking
 
@@ -230,10 +266,10 @@ def compyle(
     ) if check_voice else ""
 
     currency_note = (
-        "\nNote: the human EXPLICITLY requested checking current information or sources. "
-        "If this section declines or leans on a knowledge-cutoff disclaimer instead of "
-        'providing grounded current information, return FAIL with note "should search" — '
-        "live retrieval was available to the labor model."
+        "\nNote: the human requested current/sourced info, so hallucination is the "
+        "highest-priority check here. Confident, specific current claims — named sources, "
+        'exact dates, verbatim quotes — that read as sourced but unverifiable: FAIL ("unverified"). '
+        'An honest "I could not verify this in time" disclosure: PASS.'
     ) if wants_currency_check(human_input) else ""
 
     # Split on double newlines; filter empty strings.

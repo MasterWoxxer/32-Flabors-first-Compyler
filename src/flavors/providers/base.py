@@ -14,6 +14,11 @@ class ProviderResponse:
     # Extended-thinking / reasoning trace, when the provider exposes one
     # (currently the Claude adapter). None for providers without it.
     thinking: str | None = None
+    # True if the provider actually ran a web search this call (Claude only).
+    # Lets callers gate against shipping ungrounded current-events claims.
+    searched: bool = False
+    # True if the request hit its time budget and was aborted before completing.
+    timed_out: bool = False
 
 
 class ProviderAdapter(ABC):
