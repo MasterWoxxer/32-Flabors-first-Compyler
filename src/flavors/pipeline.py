@@ -68,6 +68,33 @@ def _is_simple_input(human_input: str) -> bool:
     return False
 
 
+# Phrases that signal the human is EXPLICITLY asking to check sources or current
+# events. Deterministic + inspectable on purpose: the compyler is a small model,
+# so we compute this trigger in code and feed it to both the labor and compyler
+# stages rather than asking the model to infer intent. Biased toward
+# over-triggering — a false positive just forces more grounding; the compyler
+# backstop only fails a BARE decline, so it rarely over-blocks.
+_CURRENCY_REQUEST_PHRASES = (
+    "check sources", "check the sources", "cite sources", "cite your sources",
+    "current events", "look up", "look it up", "search", "web search",
+    "verify", "fact-check", "fact check", "double-check", "double check",
+    "update to", "updated", "latest", "most recent", "as of", "right now",
+    "today", "yesterday", "this morning", "this week", "breaking",
+    "live sources", "official statement", "official statements",
+    "don't trust", "do not trust", "real-time", "realtime", "lean on",
+)
+
+
+def wants_currency_check(human_input: str) -> bool:
+    """True when the human explicitly asks to check sources or current events.
+
+    Drives two behaviors: the labor model MUST search (not decline) and the
+    compyler must fail a bare cutoff-disclosure instead of passing it.
+    """
+    lowered = human_input.lower()
+    return any(phrase in lowered for phrase in _CURRENCY_REQUEST_PHRASES)
+
+
 def _parse_decision(raw: str) -> tuple[str, str]:
     """Extract decision/note from a compyler per-section response."""
     # Strip markdown fences
@@ -160,11 +187,26 @@ def execute(
         f"regardless of how the orchestrator has scoped the task):\n{human_input}\n\n"
         f"Orchestrator's task instruction:\n{orchestrator_instruction}"
     )
+    system = EXECUTOR_SYSTEM
+    if wants_currency_check(human_input):
+        system += (
+            " The human has explicitly asked you to check current information or sources. "
+            "You MUST use the web_search tool, ground your answer in the retrieved results, "
+            "and cite them. Do NOT decline or fall back on a knowledge-cutoff disclaimer — "
+            "live retrieval is available to you. If the human stated a source preference "
+            "(sources to prefer or distrust), honor it as far as the available results allow."
+        )
+    else:
+        system += (
+            " Use the web_search tool to retrieve current information when the task "
+            "depends on facts that may have changed since your training cutoff."
+        )
     resp: ProviderResponse = adapter.generate(
-        system=EXECUTOR_SYSTEM,
+        system=system,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1024,
         thinking=True,
+        web_search=True,
     )
     return resp.text, resp.thinking
 
@@ -187,6 +229,13 @@ def compyle(
         "as a present, centered conversational entity in first person."
     ) if check_voice else ""
 
+    currency_note = (
+        "\nNote: the human EXPLICITLY requested checking current information or sources. "
+        "If this section declines or leans on a knowledge-cutoff disclaimer instead of "
+        'providing grounded current information, return FAIL with note "should search" — '
+        "live retrieval was available to the labor model."
+    ) if wants_currency_check(human_input) else ""
+
     # Split on double newlines; filter empty strings.
     raw_sections = [s.strip() for s in output.split("\n\n") if s.strip()]
     if not raw_sections:
@@ -199,7 +248,7 @@ def compyle(
         user_msg = (
             f"###HUMAN_INPUT###\n{human_input}\n\n"
             f"###ORCHESTRATOR###\n{orchestrator_instruction}\n\n"
-            f"###OUTPUT###\n{section_text}{voice_note}"
+            f"###OUTPUT###\n{section_text}{voice_note}{currency_note}"
         )
         resp: ProviderResponse = adapter.generate(
             system=COMPYLER_SYSTEM,

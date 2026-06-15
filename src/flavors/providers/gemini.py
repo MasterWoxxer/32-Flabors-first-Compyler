@@ -26,6 +26,7 @@ class GeminiAdapter(ProviderAdapter):
         messages: list[dict],
         max_tokens: int = 1024,
         thinking: bool = False,  # not supported; ignored
+        web_search: bool = False,  # not supported; ignored
     ) -> ProviderResponse:
         try:
             import google.generativeai as genai  # noqa: PLC0415

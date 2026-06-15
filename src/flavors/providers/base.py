@@ -37,6 +37,7 @@ class ProviderAdapter(ABC):
         messages: list[dict],
         max_tokens: int = 1024,
         thinking: bool = False,
+        web_search: bool = False,
     ) -> ProviderResponse:
         """
         Call the provider and return a normalized ProviderResponse.
@@ -49,4 +50,7 @@ class ProviderAdapter(ABC):
                 supports it (currently Claude's adaptive thinking; Mistral's
                 Magistral models emit one regardless). Adapters without the
                 capability accept and ignore it.
+            web_search: Enable the provider's server-side web-search tool so the
+                model can retrieve current information (currently Claude only).
+                Adapters without the capability accept and ignore it.
         """

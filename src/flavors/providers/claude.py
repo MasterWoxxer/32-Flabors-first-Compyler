@@ -29,8 +29,13 @@ class ClaudeAdapter(ProviderAdapter):
         messages: list[dict],
         max_tokens: int = 1024,
         thinking: bool = False,
+        web_search: bool = False,
     ) -> ProviderResponse:
         extra: dict = {}
+        if web_search:
+            # Server-side web search with built-in dynamic filtering (Opus 4.6+).
+            # Lets the labor model ground answers in current information.
+            extra["tools"] = [{"type": "web_search_20260209", "name": "web_search"}]
         if thinking:
             # Opus 4.6+ supports adaptive thinking only (budget_tokens 400s).
             # display="summarized" opts into visible thinking text — on

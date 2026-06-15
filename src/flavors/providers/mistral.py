@@ -78,6 +78,7 @@ class MistralAdapter(ProviderAdapter):
         messages: list[dict],
         max_tokens: int = 1024,
         thinking: bool = False,  # Magistral models emit a trace regardless; flag ignored
+        web_search: bool = False,  # not supported; ignored
     ) -> ProviderResponse:
         full_messages = [{"role": "system", "content": system}] + messages
         resp = self._client.chat.complete(
