@@ -227,7 +227,7 @@ export default function Home() {
       {/* Three-panel layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left panel — live pipeline trace + review queue */}
-        <aside className="w-[27rem] shrink-0 border-r border-gray-800 overflow-y-auto">
+        <aside className="w-[36rem] shrink-0 border-r border-gray-800 overflow-y-auto">
           <OrchestratorPanel
             progress={progress}
             pendingChecks={pendingChecks}

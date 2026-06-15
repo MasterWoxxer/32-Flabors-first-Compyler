@@ -60,7 +60,7 @@ export function OrchestratorPanel({
       </h2>
 
       {!running && !pendingChecks.length && (
-        <p className="text-xs text-gray-600 italic leading-relaxed">
+        <p className="text-sm text-gray-600 italic leading-relaxed">
           Send a message to watch the pipeline unfold here: the orchestrator&apos;s
           task framing, the labor model&apos;s output, and the Compyler&apos;s verdict.
         </p>
@@ -94,7 +94,7 @@ export function OrchestratorPanel({
                 <div key={s} className="flex items-center gap-2">
                   <StatusDot status={status} />
                   <span
-                    className={`text-xs ${
+                    className={`text-sm ${
                       status === "pending" ? "text-gray-600" : "text-gray-300"
                     }`}
                   >
@@ -109,8 +109,8 @@ export function OrchestratorPanel({
           {/* Orchestrator thinking */}
           {progress.orchestrator_thinking && (
             <section className="space-y-1">
-              <h3 className="text-xs text-gray-500">Orchestrator Thinking</h3>
-              <p className="text-xs text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <h3 className="text-sm text-gray-400">Orchestrator Thinking</h3>
+              <p className="text-sm text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
                 {progress.orchestrator_thinking}
               </p>
             </section>
@@ -119,8 +119,8 @@ export function OrchestratorPanel({
           {/* Task instruction */}
           {progress.instruction && (
             <section className="space-y-1">
-              <h3 className="text-xs text-gray-500">Task Instruction</h3>
-              <p className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+              <h3 className="text-sm text-gray-400">Task Instruction</h3>
+              <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
                 {progress.instruction}
               </p>
             </section>
@@ -129,8 +129,8 @@ export function OrchestratorPanel({
           {/* Labor thinking */}
           {progress.labor_thinking && (
             <section className="space-y-1">
-              <h3 className="text-xs text-gray-500">Labor Thinking</h3>
-              <p className="text-xs text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <h3 className="text-sm text-gray-400">Labor Thinking</h3>
+              <p className="text-sm text-gray-500 italic whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
                 {progress.labor_thinking}
               </p>
             </section>
@@ -139,8 +139,8 @@ export function OrchestratorPanel({
           {/* Labor output */}
           {progress.labor_output && (
             <section className="space-y-1">
-              <h3 className="text-xs text-gray-500">Labor Output</h3>
-              <p className="text-xs text-gray-400 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+              <h3 className="text-sm text-gray-400">Labor Output</h3>
+              <p className="text-sm text-gray-400 whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
                 {progress.labor_output}
               </p>
             </section>
@@ -149,7 +149,7 @@ export function OrchestratorPanel({
           {/* Compyler results — pass summary + fail blocks only (CHECKs go to review queue above) */}
           {(progress.labor_verdict || progress.voice_verdict) && (
             <section className="space-y-2">
-              <h3 className="text-xs text-gray-500">Compyler</h3>
+              <h3 className="text-sm text-gray-400">Compyler</h3>
               {progress.labor_verdict && (
                 <>
                   <PassSummary result={progress.labor_verdict} />
@@ -170,7 +170,7 @@ export function OrchestratorPanel({
           )}
 
           {progress.stage === "error" && (
-            <p className="text-xs text-red-400 leading-relaxed">
+            <p className="text-sm text-red-400 leading-relaxed">
               Pipeline error: {progress.error}
             </p>
           )}

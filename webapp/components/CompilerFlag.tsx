@@ -71,24 +71,24 @@ export function CheckReviewCard({
   return (
     <div className="rounded border border-amber-700 bg-amber-900/20 p-3 space-y-2">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-mono font-bold text-amber-300">CHECK</span>
+        <span className="text-sm font-mono font-bold text-amber-300">CHECK</span>
         {section.note && (
-          <span className="text-xs text-amber-400 opacity-70">— {section.note}</span>
+          <span className="text-sm text-amber-400 opacity-70">— {section.note}</span>
         )}
       </div>
-      <p className="text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">
+      <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
         {section.text}
       </p>
       <div className="flex gap-2 pt-1">
         <button
           onClick={() => onPass(messageId, section.text)}
-          className="text-xs px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white transition-colors"
+          className="text-sm px-3 py-1 rounded bg-indigo-700 hover:bg-indigo-600 text-white transition-colors"
         >
           Pass
         </button>
         <button
           onClick={() => onDismiss(messageId, section.text)}
-          className="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+          className="text-sm px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
         >
           Dismiss
         </button>
@@ -100,7 +100,7 @@ export function CheckReviewCard({
 /** Brief FAIL indicator for the sidebar — just label + note, no full text. */
 export function FailFlag({ section }: { section: CompylerSection }) {
   return (
-    <div className="rounded border border-red-800 bg-red-900/20 px-2 py-1 text-xs text-red-400 font-mono">
+    <div className="rounded border border-red-800 bg-red-900/20 px-2 py-1 text-sm text-red-400 font-mono">
       FAIL{section.note ? ` — ${section.note}` : ""}
     </div>
   );
@@ -111,7 +111,7 @@ export function PassSummary({ result }: { result: CompylerResult }) {
   const count = result.sections.filter((s) => s.decision === "PASS").length;
   if (!count) return null;
   return (
-    <p className="text-xs text-green-600">
+    <p className="text-sm text-green-600">
       ✓ {count} section{count > 1 ? "s" : ""} passed
     </p>
   );
