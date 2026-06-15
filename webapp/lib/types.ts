@@ -19,6 +19,12 @@ export interface CompylerResult {
   raw: string;
 }
 
+/** One labor sub-task emitted by the orchestrator. */
+export interface Segment {
+  title: string;
+  instruction: string;
+}
+
 /** Full structured output from one pipeline run. */
 export interface PipelineResult {
   orchestrator_instruction: string;
@@ -54,6 +60,8 @@ export interface ToggleSettings {
   responseLength: ResponseLength;
   languageSmoothness: boolean;
   historyTurns: number;
+  /** Placeholder — not yet wired; the orchestrator auto-decides segmentation. */
+  segmentComplexQueries: boolean;
 }
 
 export const DEFAULT_SETTINGS: ToggleSettings = {
@@ -64,6 +72,7 @@ export const DEFAULT_SETTINGS: ToggleSettings = {
   responseLength: "full",
   languageSmoothness: false,
   historyTurns: 0,
+  segmentComplexQueries: false,
 };
 
 // ── Staged pipeline progress ─────────────────────────────────────────────────
@@ -86,6 +95,10 @@ export interface PipelineProgress {
   labor_verdict?: CompylerResult;
   voice_verdict?: CompylerResult | null;
   error?: string;
+  /** 1-based index of the segment currently running, when segmented. */
+  segmentIndex?: number;
+  segmentCount?: number;
+  segmentTitle?: string;
 }
 
 export const IDLE_PROGRESS: PipelineProgress = { stage: "idle" };
@@ -97,6 +110,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   pipeline?: PipelineResult;
+  /** Segment title, shown as a header on the bubble in multi-segment turns. */
+  title?: string;
   timestamp: number;
 }
 

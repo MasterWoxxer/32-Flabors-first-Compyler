@@ -1,23 +1,34 @@
+"use client";
+
+import { useState } from "react";
 import type { CompylerResult, CompylerSection } from "@/lib/types";
 
 /**
  * Renders the assistant message in chat.
  * PASS sections: verbatim, clean.
- * FAIL sections: blocked inline with a flag.
+ * FAIL sections: blocked inline, but expandable to reveal the flagged text, with a
+ *   "Use anyway" override — the content belongs to the sovereign human user.
  * CHECK sections: not shown here — they live in the sidebar review queue.
- * Approved sections (user passed from review): shown with a subtle indigo border.
+ * Approved sections (user passed a CHECK or overrode a FAIL): subtle indigo border.
  */
 export function CompylerMessage({
   result,
   approvedTexts = [],
   hasPendingChecks = false,
+  messageId,
+  onUseAnyway,
 }: {
   result: CompylerResult;
   approvedTexts?: string[];
   hasPendingChecks?: boolean;
+  messageId?: string;
+  onUseAnyway?: (messageId: string, text: string) => void;
 }) {
   const passSections = result.sections.filter((s) => s.decision === "PASS");
-  const failSections = result.sections.filter((s) => s.decision === "FAIL");
+  // A FAIL the user already overrode renders below as an approved block, not as a flag.
+  const failSections = result.sections.filter(
+    (s) => s.decision === "FAIL" && !approvedTexts.includes(s.text),
+  );
   const checkCount = result.sections.filter((s) => s.decision === "CHECK").length;
 
   return (
@@ -35,20 +46,62 @@ export function CompylerMessage({
       ))}
 
       {failSections.map((s, i) => (
-        <div
+        <FailBlock
           key={i}
-          className="rounded border border-red-700 bg-red-900/30 px-3 py-1.5 text-xs text-red-300 font-mono"
-        >
-          [Compyler blocked{s.note ? `: ${s.note}` : ""}]
-        </div>
+          section={s}
+          messageId={messageId ?? ""}
+          onUseAnyway={onUseAnyway}
+        />
       ))}
 
       {approvedTexts.map((text, i) => (
         <div key={i} className="border-l-2 border-indigo-500 pl-3">
           <p className="whitespace-pre-wrap leading-relaxed text-sm text-gray-100">{text}</p>
-          <span className="text-xs text-indigo-400 mt-0.5 block">passed from review</span>
+          <span className="text-xs text-indigo-400 mt-0.5 block">added by you</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Inline FAIL block in chat: collapsed to a flag, expandable to the full flagged
+ * text, with a "Use anyway" override that promotes the content into the answer.
+ */
+function FailBlock({
+  section,
+  messageId,
+  onUseAnyway,
+}: {
+  section: CompylerSection;
+  messageId: string;
+  onUseAnyway?: (messageId: string, text: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded border border-red-700 bg-red-900/30 px-3 py-1.5 text-sm text-red-300">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="font-mono text-left w-full flex items-center gap-1.5"
+      >
+        <span className="text-red-400">{open ? "▾" : "▸"}</span>
+        <span>[Compyler blocked{section.note ? `: ${section.note}` : ""}]</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          <p className="whitespace-pre-wrap leading-relaxed text-sm text-gray-200">
+            {section.text}
+          </p>
+          {onUseAnyway && (
+            <button
+              onClick={() => onUseAnyway(messageId, section.text)}
+              className="text-sm px-3 py-1 rounded bg-red-800 hover:bg-red-700 text-red-100 transition-colors"
+            >
+              Use anyway
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -97,11 +150,23 @@ export function CheckReviewCard({
   );
 }
 
-/** Brief FAIL indicator for the sidebar — just label + note, no full text. */
+/** FAIL indicator for the sidebar — label + note, expandable to the flagged text. */
 export function FailFlag({ section }: { section: CompylerSection }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="rounded border border-red-800 bg-red-900/20 px-2 py-1 text-sm text-red-400 font-mono">
-      FAIL{section.note ? ` — ${section.note}` : ""}
+    <div className="rounded border border-red-800 bg-red-900/20 px-2 py-1 text-sm text-red-400">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="font-mono text-left w-full flex items-center gap-1.5"
+      >
+        <span>{open ? "▾" : "▸"}</span>
+        <span>FAIL{section.note ? ` — ${section.note}` : ""}</span>
+      </button>
+      {open && (
+        <p className="mt-1 whitespace-pre-wrap leading-relaxed text-gray-300">
+          {section.text}
+        </p>
+      )}
     </div>
   );
 }

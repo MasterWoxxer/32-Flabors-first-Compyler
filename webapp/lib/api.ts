@@ -4,7 +4,7 @@
  * Every call carries the tester access code (x-access-code) when one is stored.
  */
 
-import type { CompylerResult, HistoryTurn, PipelineResult, ToggleSettings } from "./types";
+import type { CompylerResult, HistoryTurn, PipelineResult, Segment, ToggleSettings } from "./types";
 
 const ACCESS_CODE_KEY = "32flavors-access-code";
 const SESSION_ID_KEY = "32flavors-session-id";
@@ -71,7 +71,7 @@ export function orchestrate(
   message: string,
   settings: ToggleSettings,
   history: HistoryTurn[] = [],
-): Promise<{ instruction: string; orchestrator_thinking: string | null }> {
+): Promise<{ segments: Segment[]; orchestrator_thinking: string | null }> {
   return post("/api/pipeline/orchestrate", { message, settings, history });
 }
 

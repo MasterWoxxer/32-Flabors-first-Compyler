@@ -175,11 +175,36 @@ def build_orchestrator_system(config: PipelineConfig) -> str:
     return system
 
 
+# The orchestrator marks each sub-task with a "### SEGMENT: <title>" line.
+_SEGMENT_RE = _re.compile(r"^#{1,6}\s*SEGMENT\s*:\s*(.+?)\s*$", _re.IGNORECASE | _re.MULTILINE)
+
+
+def _parse_segments(raw: str, max_segments: int = 4) -> list[dict]:
+    """Split the orchestrator output into labor sub-tasks.
+
+    Robust against the weak orchestrator model: if no SEGMENT markers are present
+    (single-topic / simple inputs), returns one segment carrying the whole output.
+    """
+    text = raw.strip()
+    matches = list(_SEGMENT_RE.finditer(text))
+    if not matches:
+        return [{"title": "", "instruction": text}]
+    segments: list[dict] = []
+    for i, m in enumerate(matches):
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        instruction = text[start:end].strip()
+        title = m.group(1).strip().strip("*#").strip()
+        if instruction:
+            segments.append({"title": title, "instruction": instruction})
+    return segments[:max_segments] if segments else [{"title": "", "instruction": text}]
+
+
 def orchestrate(
     human_input: str,
     config: PipelineConfig,
     history: list[dict] | None = None,
-) -> tuple[str, str | None]:
+) -> tuple[list[dict], str | None]:
     adapter = _adapter(config.orchestrator_provider, config.orchestrator_model)
     prior = list(history) if history else []
     messages = prior + [{"role": "user", "content": human_input}]
@@ -195,9 +220,9 @@ def orchestrate(
     resp: ProviderResponse = adapter.generate(
         system=system,
         messages=messages,
-        max_tokens=512,
+        max_tokens=768,
     )
-    return resp.text, resp.thinking
+    return _parse_segments(resp.text), resp.thinking
 
 
 def execute(
@@ -219,9 +244,13 @@ def execute(
             "You MUST use the web_search tool and ground every current claim, source, date, "
             "and quote in the retrieved results, citing them. If you cannot verify something, "
             "say so explicitly — NEVER present unverified or remembered details as current "
-            "fact, and NEVER invent sources, dates, or quotes. Honor any stated source "
-            "preference as far as the results allow. Output only the final framework — do "
-            "not narrate your search process."
+            "fact, and NEVER invent sources, dates, or quotes. If the human expressed "
+            "distrust of certain outlets, do NOT exclude them outright — instead weight "
+            "them with extra skepticism, seek corroboration, prefer primary sources "
+            "(official statements, transcripts, a person's own posts), and label your "
+            "confidence; a distrusted outlet may still point you to a primary source. "
+            "Cite what you actually used. Output only the final framework — do not narrate "
+            "your search process."
         )
         resp: ProviderResponse = adapter.generate(
             system=system,
@@ -302,25 +331,55 @@ def run_pipeline(
     config: PipelineConfig,
     history: list[dict] | None = None,
 ) -> dict:
-    instruction, orchestrator_thinking = orchestrate(human_input, config, history)
-    raw_output, labor_thinking = execute(instruction, human_input, config)
-    labor_output, direct_response = split_labor_output(raw_output)
+    segments, orchestrator_thinking = orchestrate(human_input, config, history)
 
-    labor_verdict = compyle(human_input, instruction, labor_output, config)
-    voice_verdict = (
-        compyle(human_input, instruction, direct_response, config, check_voice=True)
-        if direct_response
-        else None
-    )
+    if len(segments) == 1:
+        instruction = segments[0]["instruction"]
+        raw_output, labor_thinking = execute(instruction, human_input, config)
+        labor_output, direct_response = split_labor_output(raw_output)
+        labor_verdict = compyle(human_input, instruction, labor_output, config)
+        voice_verdict = (
+            compyle(human_input, instruction, direct_response, config, check_voice=True)
+            if direct_response
+            else None
+        )
+        return {
+            "orchestrator_instruction": instruction,
+            "orchestrator_thinking": orchestrator_thinking,
+            "labor_output": labor_output,
+            "labor_thinking": labor_thinking,
+            "direct_response": direct_response,
+            "compiler": {"labor_verdict": labor_verdict, "voice_verdict": voice_verdict},
+            "segments": segments,
+        }
 
+    # Multi-segment: run each sub-task on its own (its own search budget), aggregate.
+    parts: list[str] = []
+    sections: list[dict] = []
+    thinkings: list[str] = []
+    instructions: list[str] = []
+    for seg in segments:
+        raw_output, labor_thinking = execute(seg["instruction"], human_input, config)
+        labor_output, _direct = split_labor_output(raw_output)
+        verdict = compyle(human_input, seg["instruction"], labor_output, config)
+        header = f"## {seg['title']}\n" if seg["title"] else ""
+        parts.append(header + labor_output)
+        sections.extend(verdict["sections"])
+        if labor_thinking:
+            thinkings.append(labor_thinking)
+        instructions.append(
+            (f"### SEGMENT: {seg['title']}\n" if seg["title"] else "") + seg["instruction"]
+        )
+    combined = "\n\n".join(parts)
     return {
-        "orchestrator_instruction": instruction,
+        "orchestrator_instruction": "\n\n".join(instructions),
         "orchestrator_thinking": orchestrator_thinking,
-        "labor_output": labor_output,
-        "labor_thinking": labor_thinking,
-        "direct_response": direct_response,
+        "labor_output": combined,
+        "labor_thinking": "\n\n".join(thinkings) or None,
+        "direct_response": None,
         "compiler": {
-            "labor_verdict": labor_verdict,
-            "voice_verdict": voice_verdict,
+            "labor_verdict": {"sections": sections, "raw": combined},
+            "voice_verdict": None,
         },
+        "segments": segments,
     }

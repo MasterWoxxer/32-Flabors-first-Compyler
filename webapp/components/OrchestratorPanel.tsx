@@ -86,6 +86,13 @@ export function OrchestratorPanel({
 
       {running && (
         <>
+          {progress.segmentCount && progress.segmentCount > 1 && (
+            <p className="text-sm text-indigo-300 font-medium">
+              Segment {progress.segmentIndex}/{progress.segmentCount}
+              {progress.segmentTitle ? `: ${progress.segmentTitle}` : ""}
+            </p>
+          )}
+
           {/* Stage tracker */}
           <section className="space-y-1.5">
             {STAGE_ORDER.map((s) => {

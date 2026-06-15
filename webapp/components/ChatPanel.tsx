@@ -19,6 +19,7 @@ export function ChatPanel({
   showOnlyFlags,
   approvedSections,
   pendingCheckIds,
+  onUseAnyway,
 }: {
   messages: ChatMessage[];
   onSend: (text: string) => void;
@@ -27,6 +28,7 @@ export function ChatPanel({
   showOnlyFlags: boolean;
   approvedSections: Record<string, string[]>;
   pendingCheckIds: Set<string>;
+  onUseAnyway: (messageId: string, text: string) => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -71,6 +73,11 @@ export function ChatPanel({
                     : "bg-gray-800 text-gray-100"
                 }`}
               >
+                {msg.title && (
+                  <div className="text-xs uppercase tracking-wide text-indigo-300 font-semibold mb-1.5">
+                    {msg.title}
+                  </div>
+                )}
                 {msg.role === "user" || !compylerResult ? (
                   <p className="whitespace-pre-wrap leading-relaxed text-sm">{msg.content}</p>
                 ) : (
@@ -78,6 +85,8 @@ export function ChatPanel({
                     result={compylerResult}
                     approvedTexts={approved}
                     hasPendingChecks={hasPending}
+                    messageId={msg.id}
+                    onUseAnyway={onUseAnyway}
                   />
                 )}
               </div>

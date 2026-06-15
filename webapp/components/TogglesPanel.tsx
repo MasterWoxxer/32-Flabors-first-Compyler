@@ -132,6 +132,12 @@ export function TogglesPanel({
           checked={settings.orchestrator.strictMode}
           onChange={(v) => set(["orchestrator", "strictMode"], v)}
         />
+        <Toggle
+          label="Segment complex queries"
+          description="(Coming soon) The orchestrator currently auto-decides when to split a multi-part query into separately-searched sections."
+          checked={settings.segmentComplexQueries}
+          onChange={(v) => set(["segmentComplexQueries"], v)}
+        />
       </section>
 
       {/* ── Session structure ───────────────────────────────────────── */}

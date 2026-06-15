@@ -110,12 +110,12 @@ def orchestrate_stage(req: RunRequest):
     _require_message(req.message)
     config = config_from_settings(req.settings)
     try:
-        instruction, orchestrator_thinking = orchestrate(
+        segments, orchestrator_thinking = orchestrate(
             req.message, config, history=req.history or None
         )
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-    return {"instruction": instruction, "orchestrator_thinking": orchestrator_thinking}
+    return {"segments": segments, "orchestrator_thinking": orchestrator_thinking}
 
 
 @app.post("/execute")

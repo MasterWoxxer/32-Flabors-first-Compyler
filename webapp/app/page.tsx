@@ -86,76 +86,111 @@ export default function Home() {
         setProgress({ stage: "orchestrating" });
         const sessionHistory = historyRef.current;
         historyRef.current = []; // clear so old history only touches the first call
-        const { instruction, orchestrator_thinking } = await orchestrate(
+        const { segments, orchestrator_thinking } = await orchestrate(
           text,
           settings,
           sessionHistory,
         );
 
-        setProgress({ stage: "executing", instruction, orchestrator_thinking });
-        const { labor_output, labor_thinking, direct_response } = await execute(
-          text,
-          instruction,
-          settings,
-        );
+        const count = segments.length;
+        const results: PipelineResult[] = [];
 
-        setProgress({
-          stage: "compyling",
-          instruction,
-          orchestrator_thinking,
-          labor_output,
-          labor_thinking,
-          direct_response,
-        });
-        const labor_verdict = await compyle(text, instruction, labor_output, false, settings);
-        const voice_verdict = direct_response
-          ? await compyle(text, instruction, direct_response, true, settings)
-          : null;
+        // Each segment is its own execute call (its own search budget); stream a
+        // bubble per segment as it verifies. Voice-check only on single-segment.
+        for (let i = 0; i < count; i++) {
+          const seg = segments[i];
+          const segFields =
+            count > 1
+              ? { segmentIndex: i + 1, segmentCount: count, segmentTitle: seg.title }
+              : {};
 
-        const result: PipelineResult = {
-          orchestrator_instruction: instruction,
-          orchestrator_thinking,
-          labor_output,
-          labor_thinking,
-          direct_response,
-          compiler: { labor_verdict, voice_verdict },
-        };
-        setProgress({
-          stage: "done",
-          instruction,
-          orchestrator_thinking,
-          labor_output,
-          labor_thinking,
-          direct_response,
-          labor_verdict,
-          voice_verdict,
-        });
+          setProgress({
+            stage: "executing",
+            instruction: seg.instruction,
+            orchestrator_thinking,
+            ...segFields,
+          });
+          const { labor_output, labor_thinking, direct_response } = await execute(
+            text,
+            seg.instruction,
+            settings,
+          );
 
-        const assistantMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: result.direct_response ?? result.labor_output,
-          pipeline: result,
-          timestamp: Date.now(),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
+          setProgress({
+            stage: "compyling",
+            instruction: seg.instruction,
+            orchestrator_thinking,
+            labor_output,
+            labor_thinking,
+            direct_response,
+            ...segFields,
+          });
+          const labor_verdict = await compyle(text, seg.instruction, labor_output, false, settings);
+          const voice_verdict =
+            count === 1 && direct_response
+              ? await compyle(text, seg.instruction, direct_response, true, settings)
+              : null;
 
-        // Collect CHECK sections into the review queue.
-        const checks: PendingCheck[] = [
-          ...labor_verdict.sections
-            .filter((s) => s.decision === "CHECK")
-            .map((s) => ({ messageId: assistantMsg.id, section: s })),
-          ...(voice_verdict?.sections
-            .filter((s) => s.decision === "CHECK")
-            .map((s) => ({ messageId: assistantMsg.id, section: s })) ?? []),
-        ];
-        if (checks.length) setPendingChecks(checks);
+          const result: PipelineResult = {
+            orchestrator_instruction: seg.instruction,
+            orchestrator_thinking,
+            labor_output,
+            labor_thinking,
+            direct_response,
+            compiler: { labor_verdict, voice_verdict },
+          };
+          results.push(result);
 
+          const assistantMsg: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: result.direct_response ?? result.labor_output,
+            pipeline: result,
+            title: count > 1 ? seg.title : undefined,
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+
+          // Surface CHECK sections to the review queue as each segment lands.
+          const checks: PendingCheck[] = [
+            ...labor_verdict.sections
+              .filter((s) => s.decision === "CHECK")
+              .map((s) => ({ messageId: assistantMsg.id, section: s })),
+            ...(voice_verdict?.sections
+              .filter((s) => s.decision === "CHECK")
+              .map((s) => ({ messageId: assistantMsg.id, section: s })) ?? []),
+          ];
+          if (checks.length) setPendingChecks((prev) => [...prev, ...checks]);
+        }
+
+        setProgress({ stage: "done" });
+
+        // Log the turn — aggregate when segmented.
+        const logResult: PipelineResult =
+          count === 1
+            ? results[0]
+            : {
+                orchestrator_instruction: segments.map((s) => s.instruction).join("\n\n"),
+                orchestrator_thinking,
+                labor_output: results
+                  .map((r, i) => (segments[i].title ? `## ${segments[i].title}\n` : "") + r.labor_output)
+                  .join("\n\n"),
+                labor_thinking:
+                  results.map((r) => r.labor_thinking).filter(Boolean).join("\n\n") || null,
+                direct_response: null,
+                compiler: {
+                  labor_verdict: {
+                    sections: results.flatMap((r) => r.compiler.labor_verdict.sections),
+                    raw: "",
+                  },
+                  voice_verdict: null,
+                },
+              };
         logRun({
           sessionId: getSessionId(),
           conversationId: conversationRef.current,
           message: text,
-          result,
+          result: logResult,
           settings,
         }).then((id) => {
           if (id) conversationRef.current = id;
@@ -246,6 +281,7 @@ export default function Home() {
             showOnlyFlags={settings.display.showOnlyCompilerFlags}
             approvedSections={approvedSections}
             pendingCheckIds={pendingCheckIds}
+            onUseAnyway={handlePassSection}
           />
         </main>
 
